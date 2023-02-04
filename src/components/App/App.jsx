@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Searchbar from 'components/Searchbar/Searchbar';
 import ImageGallery from 'components/ImageGallery/ImageGallery';
@@ -7,127 +7,98 @@ import Button from 'components/Button/Button';
 import css from './App.module.css';
 import { ThreeDots } from 'react-loader-spinner';
 
-class App extends React.Component {
-  state = {
-    query: '',
-    page: 1,
-    totalPages: 1,
-    images: [],
-    isLoading: false,
-    isModalOpen: false,
-    largeImageUrl: '',
-  };
+const App = () => {
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [images, setImages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [largeImageUrl, setLargeImageUrl] = useState('');
 
-  makeApiCall(query, page) {
-    if (page > this.state.totalPages && page !== 1) {
-      return;
-    }
-    const PER_PAGE = 12;
-    const API_KEY = '31994553-a06d4cdad4717387791bb7bec';
-    const searchURL = `https://pixabay.com/api/?q=${encodeURIComponent(
-      query
-    )}&page=${page}&key=${API_KEY}&image_type=photo&orientation=horizontal&per_page=${PER_PAGE}`;
+  useEffect(() => {
+    const makeApiCall = () => {
+      if (!query) {
+        return;
+      }
 
-    this.setState({ isLoading: true });
-    axios.get(searchURL).then(response => {
-      const totalPages = Math.round(response.data.totalHits / PER_PAGE);
-      this.updateState(response.data.hits, totalPages, true);
-      this.setState({ isLoading: false });
-    });
-  }
+      const PER_PAGE = 12;
+      const API_KEY = '31994553-a06d4cdad4717387791bb7bec';
+      const searchURL = `https://pixabay.com/api/?q=${encodeURIComponent(
+        query
+      )}&page=${page}&key=${API_KEY}&image_type=photo&orientation=horizontal&per_page=${PER_PAGE}`;
 
-  handleSearch = searchValue => {
-    if (searchValue !== this.state.query) {
-      this.setState({ query: searchValue, page: 1, images: [] });
-    } else {
-      this.setState({ query: searchValue }, () => {});
-    }
-  };
-
-  updateState(images, totalPages, add = false) {
-    if (add) {
-      this.setState({ totalPages, images: [...this.state.images, ...images] });
-    } else {
-      this.setState({ totalPages, images });
-    }
-  }
-
-  handleImageClick = largeImageUrl => {
-    this.setState({
-      largeImageUrl,
-      isModalOpen: true,
-    });
-  };
-
-  handleModalClickClose = event => {
-    if (event.target.id === 'modal' && this.state.isModalOpen) {
-      this.setState({
-        isModalOpen: false,
+      setIsLoading(true);
+      axios.get(searchURL).then(response => {
+        const totalPages = Math.round(response.data.totalHits / PER_PAGE);
+        const loadedImages = response.data.hits;
+        setTotalPages(totalPages);
+        setImages(prevImages => [...prevImages, ...loadedImages]);
+        setIsLoading(false);
       });
+    };
+    makeApiCall();
+  }, [query, page]);
+
+  const handleSearch = searchValue => {
+    if (searchValue !== '') {
+      if (searchValue !== query) {
+        setQuery(searchValue);
+        setPage(1);
+        setImages([]);
+      } else {
+        setQuery(searchValue);
+      }
     }
   };
 
-  handleModalClose = () => {
-    this.setState({
-      isModalOpen: false,
-    });
+  const handleImageClick = largeImageUrl => {
+    setLargeImageUrl(largeImageUrl);
+    setIsModalOpen(false);
   };
 
-  fetchMoreImages = () => {
-    this.setState(prevState => {
-      return { page: prevState.page + 1 };
-    });
-  };
-
-  getImagesFromUrl(searchUrl) {
-    axios.get(searchUrl).then(response => {
-      const totalPages = Math.round(response.data.totalHits / 12);
-      this.setState({ totalPages, images: response.data.hits });
-    });
-  }
-
-  componentDidUpdate(prevProps, prevState) {
-    if (
-      prevState.query !== this.state.query ||
-      prevState.page !== this.state.page
-    ) {
-      this.makeApiCall(this.state.query, this.state.page);
+  const handleModalClickClose = event => {
+    if (event.target.id === 'modal' && isModalOpen) {
+      setIsModalOpen(false);
     }
-  }
+  };
 
-  render() {
-    return (
-      <div className={css.App}>
-        <Searchbar onSubmit={this.handleSearch} />
-        <ImageGallery
-          images={this.state.images}
-          onModalOpen={this.handleImageClick}
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+  };
+
+  const fetchMoreImages = () => {
+    setPage(prevState => prevState + 1);
+  };
+
+  return (
+    <div className={css.App}>
+      <Searchbar onSubmit={handleSearch} />
+      <ImageGallery images={images} onModalOpen={handleImageClick} />
+      {isModalOpen && (
+        <Modal
+          largeImageUrl={largeImageUrl}
+          onClose={handleModalClose}
+          onClickClose={handleModalClickClose}
         />
-        {this.state.isModalOpen && (
-          <Modal
-            largeImageUrl={this.state.largeImageUrl}
-            onClose={this.handleModalClose}
-            onClickClose={this.handleModalClickClose}
-          />
-        )}
-        {this.state.isLoading && (
-          <ThreeDots
-            height="80"
-            width="80"
-            radius="9"
-            color="#be0b0b"
-            ariaLabel="three-dots-loading"
-            wrapperStyle={{ margin: '0 auto' }}
-            wrapperClassName=""
-            visible={true}
-          />
-        )}
-        {this.state.totalPages > 1 &&
-          this.state.page < this.state.totalPages && (
-            <Button getMoreImage={this.fetchMoreImages} />
-          )}
-      </div>
-    );
-  }
-}
+      )}
+      {isLoading && (
+        <ThreeDots
+          height="80"
+          width="80"
+          radius="9"
+          color="#be0b0b"
+          ariaLabel="three-dots-loading"
+          wrapperStyle={{ margin: '0 auto' }}
+          wrapperClassName=""
+          visible={true}
+        />
+      )}
+      {totalPages > 1 && page < totalPages && (
+        <Button getMoreImage={fetchMoreImages} />
+      )}
+    </div>
+  );
+};
+
 export default App;
