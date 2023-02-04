@@ -54,7 +54,7 @@ const App = () => {
 
   const handleImageClick = largeImageUrl => {
     setLargeImageUrl(largeImageUrl);
-    setIsModalOpen(false);
+    setIsModalOpen(true);
   };
 
   const handleModalClickClose = event => {
